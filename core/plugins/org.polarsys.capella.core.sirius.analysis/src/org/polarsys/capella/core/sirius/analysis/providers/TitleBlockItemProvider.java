@@ -12,7 +12,12 @@
  *******************************************************************************/
 package org.polarsys.capella.core.sirius.analysis.providers;
 
+import org.eclipse.emf.common.command.AbstractCommand;
+import org.eclipse.emf.common.command.Command;
+import org.eclipse.emf.common.command.UnexecutableCommand;
 import org.eclipse.emf.common.notify.AdapterFactory;
+import org.eclipse.emf.edit.command.CommandParameter;
+import org.eclipse.emf.edit.domain.EditingDomain;
 import org.eclipse.sirius.viewpoint.description.DAnnotation;
 import org.eclipse.sirius.viewpoint.description.provider.DAnnotationItemProvider;
 import org.polarsys.capella.core.diagram.helpers.TitleBlockHelper;
@@ -42,4 +47,57 @@ public class TitleBlockItemProvider extends DAnnotationItemProvider {
     return super.getParent(object);
   }
 
+  @Override
+  protected Command factorRemoveCommand(EditingDomain domain, CommandParameter commandParameter) {
+      Command factorRemoveCommand =  super.factorRemoveCommand(domain, commandParameter);
+      if (factorRemoveCommand instanceof UnexecutableCommand) {
+          /* 
+           * When a TitleBlock is deleted, UnexecutableCommands are created.
+           * It prevents TitleBlock from deletion, but the TitleBlock is still deleted thanks to 
+           * org.polarsys.capella.core.sirius.analysis.TitleBlockServices.deleteTitleBlock() 
+           * called by /org.polarsys.capella.core.sirius.analysis/description/common.odesign.
+           * Problems occur when the TitleBlock is not deleted alone (e.g. with any semantic 
+           * Capella element). In these cases, the semantic elements are not deleted, because
+           * the CompoundCommand is not executed due to the UnexecutableCommand.
+           * By replacing UnexecutableCommands with DoNothingCommands, the problems are solved.
+           */
+          return DoNothingCommand.INSTANCE;
+      }
+      return factorRemoveCommand;
+  }
+
+  /**
+   * A singleton {@link DoNothingCommand#INSTANCE} that do nothing.
+   */
+  private static class DoNothingCommand extends AbstractCommand {
+      /**
+       * The one instance of this object.
+       */
+      public static final DoNothingCommand INSTANCE = new DoNothingCommand();
+
+      /**
+       * Only one private instance is created.
+       */
+      private DoNothingCommand() {
+          super("Do nothing");
+      }
+
+      @Override
+      public boolean canExecute() {
+          return true;
+      }
+
+      @Override
+      public void execute() {
+      }
+
+      @Override
+      public boolean canUndo() {
+          return true;
+      }
+
+      @Override
+      public void redo() {
+      }
+  }
 }
